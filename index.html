@@ -85,6 +85,25 @@
       <p class="ss-params-note">
         上传到 SayStation 后，可通过平台的「全局配置」功能统一修改这些参数。
       </p>
+
+      <!-- AI Token -->
+      <div class="ss-ai-section">
+        <div class="ss-ai-header">
+          <span class="ss-ai-title">🤖 AI 辅助识别</span>
+          <span class="ss-ai-badge">可选</span>
+          <span class="ss-ai-desc">格式不规范时自动调用 AI 修正，填入后浏览器记住，无需重复填写</span>
+        </div>
+        <div class="ss-ai-row">
+          <input
+            type="password"
+            id="ai-token"
+            class="ss-ai-token-input"
+            placeholder="API Token（不填则仅使用规则解析）"
+            autocomplete="off"
+          >
+          <button id="btn-clear-token" class="ss-btn-ghost ss-btn-sm" type="button">清除</button>
+        </div>
+      </div>
     </section>
 
     <!-- Convert button ──────────────────────────────────────────────── -->

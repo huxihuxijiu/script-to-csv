@@ -1,6 +1,6 @@
 import { parseScript }              from './parser/index.js';
 import { buildCSV, buildFilename }  from './generator/csv-builder.js';
-import { initForm, getParams, resetDefaults } from './ui/form.js';
+import { initForm, getParams, resetDefaults, getApiToken, initTokenInput } from './ui/form.js';
 import { showResults, hideResults }  from './ui/renderer.js';
 import { downloadCSV }               from './io/downloader.js';
 import { readTextFile }              from './io/text-reader.js';
@@ -16,6 +16,7 @@ let pendingFilename = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   initForm();
+  initTokenInput();
   bindEvents();
 });
 
@@ -161,7 +162,14 @@ async function handleConvert() {
 
   try {
     const params = getParams();
-    const { results, errors } = parseScript(text, params);
+    const apiToken = getApiToken();
+
+    if (apiToken) setConverting(true, '正在调用 AI 识别…');
+
+    const { results, errors, usedLLM, llmError } = await parseScript(text, params, apiToken);
+
+    if (usedLLM) showToast('已使用 AI 辅助识别完成转换', 'info');
+    if (llmError) showToast(`AI 识别失败，已用规则解析：${llmError}`, 'warn');
 
     if (results.length > 0) {
       const csv = buildCSV(results);
@@ -180,12 +188,12 @@ async function handleConvert() {
   }
 }
 
-function setConverting(on) {
+function setConverting(on, label = '转换中…') {
   const btn     = document.getElementById('btn-convert');
-  const label   = document.getElementById('btn-label');
+  const lbl     = document.getElementById('btn-label');
   const spinner = document.getElementById('btn-spinner');
   btn.disabled = on;
-  label.textContent = on ? '转换中…' : '开始转换';
+  lbl.textContent = on ? label : '开始转换';
   spinner.classList.toggle('hidden', !on);
 }
 

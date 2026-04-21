@@ -5,24 +5,52 @@ import { splitShots } from './shot-splitter.js';
 import { validateEpisode } from '../utils/validator.js';
 import { matchLinks } from '../matcher/link-matcher.js';
 import { ParseError, ERROR_CODES } from '../utils/errors.js';
+import { normalizeScript } from '../llm/normalizer.js';
 
 /**
  * Main entry point: parse raw script text and return CSV row data + error list.
- * @param {string} rawText - Raw script text (any line endings, optional BOM)
- * @param {object} params  - { ratio, style, model, resolution, analysisMode }
- * @returns {{ results: object[], errors: ParseError[] }}
+ * If rule-based parsing has fatal errors AND apiToken is provided, automatically
+ * retries with AI-normalized text.
+ *
+ * @param {string} rawText   - Raw script text (any line endings, optional BOM)
+ * @param {object} params    - { ratio, style, model, resolution, analysisMode }
+ * @param {string} apiToken  - Optional Bearer token for LLM fallback
+ * @returns {Promise<{ results: object[], errors: ParseError[], usedLLM: boolean, llmError?: string }>}
  */
-export function parseScript(rawText, params) {
+export async function parseScript(rawText, params, apiToken = '') {
   // Normalize: strip BOM, unify line endings
   const text = rawText
     .replace(/^\uFEFF/, '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 
-  // Step 1: separate link table from script body
+  // Separate link table from script body (do this once; LLM only sees scriptText)
   const { scriptText, linkMap } = extractLinkTable(text);
 
-  // Step 2: split into episodes
+  // First pass: rule-based parsing
+  const firstPass = runCoreParser(scriptText, linkMap, params);
+
+  // If no fatal errors, we're done
+  const hasFatal = firstPass.errors.some(e => e.isFatal);
+  if (!hasFatal || !apiToken || !apiToken.trim()) {
+    return { ...firstPass, usedLLM: false };
+  }
+
+  // LLM fallback: normalize script and retry
+  try {
+    const normalized = await normalizeScript(scriptText, apiToken);
+    const secondPass = runCoreParser(normalized, linkMap, params);
+    return { ...secondPass, usedLLM: true };
+  } catch (llmErr) {
+    // LLM failed — return original rule-based results with LLM error attached
+    return { ...firstPass, usedLLM: false, llmError: llmErr.message };
+  }
+}
+
+/**
+ * Pure synchronous parser core. Takes already-extracted scriptText + linkMap.
+ */
+function runCoreParser(scriptText, linkMap, params) {
   const episodeRaws = splitEpisodes(scriptText);
 
   if (episodeRaws.length === 0) {
@@ -65,14 +93,14 @@ export function parseScript(rawText, params) {
     const { assets, warnings } = matchLinks(allNames, linkMap, raw.num);
     errors.push(...warnings);
 
-    // Normalize story: split on blank lines, rejoin with double blank lines
+    // Normalize story: split on double blank lines, rejoin with triple newlines
     const shots = splitShots(raw.content);
     const story = shots.join('\n\n\n');
 
     results.push({
-      episode: raw.rawHeader,   // col 1: preserved as-is (user Q3)
-      story,                    // col 2: full episode content, shots separated by \\n\\n\\n
-      assets,                   // col 3: name｜url, blank line between entries
+      episode: raw.rawHeader,   // col 1: preserved as-is
+      story,                    // col 2: full episode content
+      assets,                   // col 3: name｜url entries
       ratio: params.ratio,
       style: params.style,
       model: params.model,
