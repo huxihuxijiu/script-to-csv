@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "script-to-csv",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/Users/lindaiyu/Documents/script-to-csv/serve.py"],
+      "port": 3333
+    }
+  ]
+}

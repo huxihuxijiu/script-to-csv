@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>剧本 → CSV 转换器 · SayStation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="ss-header">
+    <div class="ss-header-inner">
+      <div class="ss-header-badge">SayStation 专用工具</div>
+      <h1 class="ss-title">剧本 → CSV 转换器</h1>
+      <p class="ss-subtitle">将分集剧本自动转换为 SayStation 批量上传格式</p>
+      <details class="ss-help">
+        <summary class="ss-help-toggle">查看使用说明</summary>
+        <div class="ss-help-body">
+          <p class="ss-help-step"><strong>第一步</strong> — 上传 <code>.txt</code> / <code>.docx</code> 剧本，或直接粘贴文本</p>
+          <p class="ss-help-step"><strong>第二步</strong> — 在文档末尾附上人物/场景链接表，每行格式：<code>林晨希|https://...</code></p>
+          <p class="ss-help-step"><strong>第三步</strong> — 确认参数 → 点击「开始转换」→ 下载 CSV</p>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────── -->
+  <main class="ss-main">
+
+    <!-- ① Upload ──────────────────────────────────────────────────────── -->
+    <section class="ss-card" id="input-section">
+      <h2 class="ss-section-title">① 上传剧本</h2>
+
+      <!-- Drop zone -->
+      <div id="drop-zone" class="ss-drop-zone" role="button" aria-label="上传剧本文件">
+        <input type="file" id="file-input" accept=".txt,.docx" class="sr-only" aria-label="选择文件">
+        <div class="ss-drop-inner">
+          <div class="ss-drop-icon" aria-hidden="true">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <polyline points="9 15 12 12 15 15"/>
+            </svg>
+          </div>
+          <p class="ss-drop-primary">
+            拖入文件，或
+            <label for="file-input" class="ss-file-label" onclick="event.stopPropagation()">点击选择</label>
+          </p>
+          <p class="ss-drop-hint">支持 .txt / .docx 格式</p>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="ss-or-divider"><span>或直接粘贴文本</span></div>
+
+      <!-- Textarea -->
+      <div class="ss-textarea-wrap">
+        <textarea
+          id="script-input"
+          class="ss-textarea"
+          placeholder="将剧本内容粘贴到此处……&#10;&#10;文档末尾请附上链接表，每行格式：&#10;林晨希|https://cdn.example.com/lch.jpg&#10;苏夏妍|https://cdn.example.com/sxy.jpg&#10;林晨希卧室|https://cdn.example.com/room.jpg"
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <!-- Footer: filename + clear -->
+      <div class="ss-input-footer">
+        <span id="file-name-display" class="ss-filename hidden" aria-live="polite"></span>
+        <button id="btn-clear" class="ss-btn-ghost" type="button">清空</button>
+      </div>
+    </section>
+
+    <!-- ② Parameters ─────────────────────────────────────────────────── -->
+    <section class="ss-card" id="params-section">
+      <div class="ss-section-header">
+        <h2 class="ss-section-title">② 参数设置</h2>
+        <button id="btn-reset-defaults" class="ss-btn-ghost ss-btn-sm" type="button">恢复默认值</button>
+      </div>
+      <div id="params-grid" class="ss-params-grid">
+        <!-- Populated by form.js -->
+      </div>
+      <p class="ss-params-note">
+        上传到 SayStation 后，可通过平台的「全局配置」功能统一修改这些参数。
+      </p>
+    </section>
+
+    <!-- Convert button ──────────────────────────────────────────────── -->
+    <div class="ss-convert-wrap">
+      <button id="btn-convert" class="ss-btn-convert" type="button">
+        <span id="btn-spinner" class="ss-spinner hidden" aria-hidden="true"></span>
+        <span id="btn-label">开始转换</span>
+      </button>
+    </div>
+
+    <!-- ③ Results ────────────────────────────────────────────────────── -->
+    <section class="ss-card hidden" id="results-section" aria-live="polite">
+      <h2 class="ss-section-title">③ 转换结果</h2>
+
+      <!-- Summary chips -->
+      <div id="summary-row" class="ss-summary-row"></div>
+
+      <!-- Episode list -->
+      <div id="episode-list" class="ss-episode-list"></div>
+
+      <!-- Download bar -->
+      <div class="ss-download-bar">
+        <span id="download-filename" class="ss-download-name"></span>
+        <button id="btn-download" class="ss-btn-download" type="button" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          下载 CSV 文件
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="ss-toast-container" aria-live="assertive"></div>
+
+  <!-- mammoth.js must load before module scripts so it's available as window.mammoth -->
+  <script src="lib/mammoth.browser.min.js"></script>
+  <script type="module" src="src/js/main.js"></script>
+</body>
+</html>

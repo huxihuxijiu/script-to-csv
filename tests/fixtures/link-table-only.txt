@@ -1,0 +1,3 @@
+张三|https://example.com/zhangsan.jpg
+李四|https://example.com/lisi.jpg
+会议室|https://example.com/room.jpg
