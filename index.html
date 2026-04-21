@@ -1,139 +1,1631 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>剧本 → CSV 转换器 · SayStation</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="src/css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>剧本 → CSV 转换器 · SayStation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080808;
+    --bg-1: #0f0f0f;
+    --bg-2: #141414;
+    --bg-3: #1a1a1a;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.14);
+    --text: #e8e8f0;
+    --text-dim: rgba(232,232,240,0.45);
+    --text-mid: rgba(232,232,240,0.7);
+    --accent: #7c3aed;
+    --accent-2: #0ea5e9;
+    --accent-glow: rgba(124,58,237,0.35);
+    --accent-2-glow: rgba(14,165,233,0.25);
+  }
+
+  html { font-size: 16px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Ambient background glow */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -30vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80vw;
+    height: 60vh;
+    background: radial-gradient(ellipse, rgba(124,58,237,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 60px;
+    background: rgba(8,8,8,0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    box-shadow: 0 0 16px var(--accent-glow);
+  }
+  .logo-text {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--text);
+  }
+  .nav-badge {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--accent-2);
+    background: rgba(14,165,233,0.1);
+    border: 1px solid rgba(14,165,233,0.25);
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  /* MAIN */
+  main {
+    position: relative;
+    z-index: 1;
+    padding-top: 60px;
+  }
+
+  /* HERO */
+  .hero {
+    text-align: center;
+    padding: 90px 20px 60px;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    background: rgba(14,165,233,0.07);
+    border: 1px solid rgba(14,165,233,0.2);
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 32px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent-2);
+    box-shadow: 0 0 8px var(--accent-2);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .hero h1 {
+    font-size: clamp(48px, 7vw, 88px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.6) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 20px;
+  }
+  .hero h1 span {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p {
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--text-mid);
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.65;
+    letter-spacing: 0.01em;
+  }
+
+  /* WORKSPACE */
+  .workspace {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  /* INPUT MODE TABS */
+  .input-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    margin-bottom: 16px;
+  }
+  .tab-btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active {
+    color: var(--text);
+    background: var(--bg-3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text-mid); }
+
+  /* TWO-COL GRID */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+
+  /* CARD BASE */
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .card-header-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .card-header-icon.purple { background: rgba(124,58,237,0.15); }
+  .card-header-icon.blue { background: rgba(14,165,233,0.15); }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .card-body { padding: 22px; }
+
+  /* UPLOAD ZONE */
+  .upload-zone {
+    border: 1.5px dashed rgba(124,58,237,0.3);
+    border-radius: 10px;
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: rgba(124,58,237,0.03);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(124,58,237,0.06) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: rgba(124,58,237,0.7);
+    background: rgba(124,58,237,0.06);
+    box-shadow: 0 0 30px rgba(124,58,237,0.12), inset 0 0 30px rgba(124,58,237,0.04);
+  }
+  .upload-zone:hover::before, .upload-zone.dragover::before { opacity: 1; }
+  .upload-icon {
+    width: 52px; height: 52px;
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .upload-zone:hover .upload-icon, .upload-zone.dragover .upload-icon {
+    background: rgba(124,58,237,0.18);
+    box-shadow: 0 0 20px rgba(124,58,237,0.3);
+  }
+  .upload-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .upload-sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .upload-types {
+    display: flex;
+    gap: 6px;
+  }
+  .type-chip {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.2);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  #file-input { display: none; }
+
+  /* FILE SELECTED STATE */
+  .file-selected {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: rgba(124,58,237,0.07);
+    border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 10px;
+    margin-top: 14px;
+  }
+  .file-icon {
+    width: 38px; height: 38px;
+    background: rgba(124,58,237,0.15);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-size { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .file-remove {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    transition: color 0.2s;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .file-remove:hover { color: var(--text); }
+
+  /* TEXT INPUT */
+  .text-input {
+    width: 100%;
+    min-height: 220px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 16px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .text-input::placeholder { color: var(--text-dim); font-family: 'Inter', sans-serif; }
+  .text-input:focus {
+    border-color: rgba(124,58,237,0.5);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.08);
+  }
+  .char-count {
+    text-align: right;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  /* SETTINGS CARD */
+  .setting-group {
+    margin-bottom: 20px;
+  }
+  .setting-group:last-child { margin-bottom: 0; }
+  .setting-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .setting-label .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .select-wrap {
+    position: relative;
+  }
+  .select-wrap::after {
+    content: '';
+    position: absolute;
+    right: 13px; top: 50%;
+    transform: translateY(-50%);
+    width: 0; height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--text-dim);
+    pointer-events: none;
+  }
+  select {
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    padding: 10px 36px 10px 13px;
+    appearance: none;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  select:hover { border-color: var(--border-bright); }
+  select:focus {
+    border-color: rgba(124,58,237,0.5);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.08);
+  }
+  select option { background: #1a1a1a; }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+
+  /* INFO ROW */
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+  .info-key { color: var(--text-dim); }
+  .info-val {
+    color: var(--text-mid);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .info-val.accent { color: var(--accent-2); }
+
+  /* ACTION AREA */
+  .action-area {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .convert-btn {
+    position: relative;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background: linear-gradient(135deg, #6d28d9, #7c3aed, #0ea5e9);
+    background-size: 200% 200%;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 56px;
+    cursor: pointer;
+    transition: all 0.3s;
+    animation: gradientShift 4s ease infinite;
+    box-shadow: 0 0 30px rgba(124,58,237,0.3), 0 0 60px rgba(124,58,237,0.1);
+  }
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  .convert-btn::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 13px;
+    background: linear-gradient(135deg, rgba(124,58,237,0.8), rgba(14,165,233,0.8));
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s;
+    filter: blur(10px);
+  }
+  .convert-btn:hover::before { opacity: 1; }
+  .convert-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 40px rgba(124,58,237,0.5), 0 0 80px rgba(124,58,237,0.2);
+  }
+  .convert-btn:active { transform: translateY(0); }
+  .convert-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    animation: none;
+    background: #333;
+    box-shadow: none;
+  }
+  .convert-btn:disabled::before { display: none; }
+  .btn-hint {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  /* LOADING */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 48px 0;
+  }
+  .spinner-ring {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 2px solid rgba(124,58,237,0.15);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+    box-shadow: 0 0 20px rgba(124,58,237,0.3);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-size: 14px;
+    color: var(--text-mid);
+    font-weight: 500;
+  }
+  .loading-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 280px;
+  }
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+    transition: color 0.3s;
+  }
+  .step-item.active { color: var(--text-mid); }
+  .step-item.done { color: rgba(74,222,128,0.8); }
+  .step-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border-bright);
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .step-item.active .step-dot {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 1s infinite;
+  }
+  .step-item.done .step-dot { background: rgb(74,222,128); box-shadow: none; }
+
+  /* RESULT */
+  .result-area {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+  .result-card {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(74,222,128,0.2);
+    background: var(--bg-1);
+  }
+  .result-header {
+    padding: 20px 24px;
+    background: rgba(74,222,128,0.05);
+    border-bottom: 1px solid rgba(74,222,128,0.12);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .result-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(74,222,128,0.15);
+    border: 1px solid rgba(74,222,128,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .result-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: rgb(74,222,128);
+  }
+  .result-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .result-body { padding: 24px; }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 600px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+  .stat-box {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-num {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-label { font-size: 11px; color: var(--text-dim); margin-top: 4px; letter-spacing: 0.04em; }
+
+  /* PREVIEW TABLE */
+  .preview-table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: auto;
+    max-height: 260px;
+    margin-bottom: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead { position: sticky; top: 0; background: var(--bg-2); }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-mid);
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* DOWNLOAD BTN */
+  .download-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .dl-btn {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 24px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-decoration: none;
+  }
+  .dl-btn.primary {
+    background: linear-gradient(135deg, var(--accent), #6d28d9);
+    color: white;
+    box-shadow: 0 0 20px rgba(124,58,237,0.35);
+  }
+  .dl-btn.primary:hover {
+    box-shadow: 0 0 32px rgba(124,58,237,0.55);
+    transform: translateY(-1px);
+  }
+  .dl-btn.primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .dl-btn.secondary {
+    background: var(--bg-2);
+    color: var(--text-mid);
+    border: 1px solid var(--border);
+  }
+  .dl-btn.secondary:hover {
+    border-color: var(--border-bright);
+    color: var(--text);
+  }
+
+  /* ERROR LOG */
+  .error-log {
+    margin-top: 16px;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--text-mid);
+  }
+  .error-log-title {
+    font-weight: 600;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .error-log ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    line-height: 1.9;
+  }
+
+  /* HIDDEN */
+  .hidden { display: none !important; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+  /* TOAST */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .toast {
+    padding: 12px 20px;
+    background: var(--bg-2);
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    transform: translateY(8px);
+    white-space: nowrap;
+    max-width: 420px;
+    pointer-events: auto;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.info  { border-left: 3px solid var(--accent); }
+  .toast.error { border-left: 3px solid rgb(239,68,68); }
+  .toast.warn  { border-left: 3px solid #f59e0b; }
+
+  /* TWEAK PANEL */
+  #tweak-panel {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    width: 260px;
+    background: var(--bg-2);
+    border: 1px solid var(--border-bright);
+    border-radius: 14px;
+    padding: 18px;
+    z-index: 200;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    display: none;
+  }
+  #tweak-panel.visible { display: block; }
+  .tweak-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+  .tweak-group { margin-bottom: 14px; }
+  .tweak-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .tweak-opts {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .tweak-chip {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 11px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--bg-3);
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .tweak-chip:hover { border-color: var(--border-bright); color: var(--text-mid); }
+  .tweak-chip.on {
+    border-color: rgba(124,58,237,0.5);
+    color: var(--accent);
+    background: rgba(124,58,237,0.1);
+  }
+</style>
+
 </head>
 <body>
 
-  <!-- ── Header ─────────────────────────────────────────────────────────── -->
-  <header class="ss-header">
-    <div class="ss-header-inner">
-      <div class="ss-header-badge">SayStation 专用工具</div>
-      <h1 class="ss-title">剧本 → CSV 转换器</h1>
-      <p class="ss-subtitle">将分集剧本自动转换为 SayStation 批量上传格式</p>
-      <details class="ss-help">
-        <summary class="ss-help-toggle">查看使用说明</summary>
-        <div class="ss-help-body">
-          <p class="ss-help-step"><strong>第一步</strong> — 上传 <code>.txt</code> / <code>.docx</code> 剧本，或直接粘贴文本</p>
-          <p class="ss-help-step"><strong>第二步</strong> — 在文档末尾附上人物/场景链接表，每行格式：<code>林晨希|https://...</code></p>
-          <p class="ss-help-step"><strong>第三步</strong> — 确认参数 → 点击「开始转换」→ 下载 CSV</p>
-        </div>
-      </details>
-    </div>
-  </header>
+<!-- NAV -->
+<nav>
+  <a class="logo" href="#">
+    <div class="logo-icon">⚡</div>
+    <span class="logo-text">剧本转换器</span>
+  </a>
+  <span class="nav-badge">AI POWERED · SayStation</span>
+</nav>
 
-  <!-- ── Main ───────────────────────────────────────────────────────────── -->
-  <main class="ss-main">
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">SayStation 专用工具</div>
+    <h1>剧本 <span>→ CSV</span></h1>
+    <p>上传分集剧本，自动转换为 SayStation 批量上传格式</p>
+  </section>
 
-    <!-- ① Upload ──────────────────────────────────────────────────────── -->
-    <section class="ss-card" id="input-section">
-      <h2 class="ss-section-title">① 上传剧本</h2>
+  <!-- WORKSPACE -->
+  <div class="workspace">
+    <div class="two-col">
 
-      <!-- Drop zone -->
-      <div id="drop-zone" class="ss-drop-zone" role="button" aria-label="上传剧本文件">
-        <input type="file" id="file-input" accept=".txt,.docx" class="sr-only" aria-label="选择文件">
-        <div class="ss-drop-inner">
-          <div class="ss-drop-icon" aria-hidden="true">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="12" y1="18" x2="12" y2="12"/>
-              <polyline points="9 15 12 12 15 15"/>
-            </svg>
+      <!-- LEFT: INPUT -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <div class="input-tabs">
+            <button class="tab-btn active" id="tab-file" onclick="switchTab('file')">📁 文件上传</button>
+            <button class="tab-btn" id="tab-text" onclick="switchTab('text')">✏️ 文本粘贴</button>
           </div>
-          <p class="ss-drop-primary">
-            拖入文件，或
-            <label for="file-input" class="ss-file-label" onclick="event.stopPropagation()">点击选择</label>
-          </p>
-          <p class="ss-drop-hint">支持 .txt / .docx 格式</p>
+
+          <!-- FILE UPLOAD -->
+          <div id="panel-file" class="card">
+            <div class="card-header">
+              <div class="card-header-icon purple">📄</div>
+              <span class="card-title">剧本文件</span>
+            </div>
+            <div class="card-body">
+              <div class="upload-zone" id="upload-zone"
+                onclick="document.getElementById('file-input').click()"
+                ondragover="handleDragOver(event)"
+                ondragleave="handleDragLeave(event)"
+                ondrop="handleDrop(event)">
+                <div class="upload-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(124,58,237,0.8)" stroke-width="1.5">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                </div>
+                <div class="upload-title">拖拽文件至此，或点击选择</div>
+                <div class="upload-sub">支持 .txt / .docx 格式</div>
+                <div class="upload-types">
+                  <span class="type-chip">TXT</span>
+                  <span class="type-chip">DOCX</span>
+                </div>
+              </div>
+              <input type="file" id="file-input" accept=".txt,.docx" onchange="handleFileSelect(event)">
+              <div id="file-selected" class="file-selected hidden">
+                <div class="file-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(124,58,237,0.8)" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                </div>
+                <div class="file-info">
+                  <div class="file-name" id="file-name-display">—</div>
+                  <div class="file-size" id="file-size-display">—</div>
+                </div>
+                <button class="file-remove" onclick="removeFile()" title="移除">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TEXT INPUT -->
+          <div id="panel-text" class="card hidden">
+            <div class="card-header">
+              <div class="card-header-icon purple">✏️</div>
+              <span class="card-title">粘贴剧本内容</span>
+            </div>
+            <div class="card-body">
+              <textarea class="text-input" id="script-text"
+                placeholder="将剧本内容粘贴至此…
+
+文档末尾请附上链接表，每行格式：
+林晨希|https://cdn.example.com/lch.jpg
+苏夏妍|https://cdn.example.com/sxy.jpg
+林晨希卧室|https://cdn.example.com/room.jpg"
+                oninput="updateCharCount()"></textarea>
+              <div class="char-count"><span id="char-count">0</span> 字符</div>
+            </div>
+          </div>
+        </div><!-- end inner left -->
+
+        <!-- ACTION -->
+        <div id="action-area" style="display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:32px;">
+          <button class="convert-btn" id="convert-btn" onclick="startConversion()" style="width:auto; min-width:200px; padding:14px 40px;">
+            ⚡ 开始转换
+          </button>
+          <div class="btn-hint" style="text-align:center;">上传剧本文件或粘贴文本后点击转换</div>
         </div>
-      </div>
+      </div><!-- end left wrapper -->
 
-      <!-- Divider -->
-      <div class="ss-or-divider"><span>或直接粘贴文本</span></div>
-
-      <!-- Textarea -->
-      <div class="ss-textarea-wrap">
-        <textarea
-          id="script-input"
-          class="ss-textarea"
-          placeholder="将剧本内容粘贴到此处……&#10;&#10;文档末尾请附上链接表，每行格式：&#10;林晨希|https://cdn.example.com/lch.jpg&#10;苏夏妍|https://cdn.example.com/sxy.jpg&#10;林晨希卧室|https://cdn.example.com/room.jpg"
-          spellcheck="false"
-        ></textarea>
-      </div>
-
-      <!-- Footer: filename + clear -->
-      <div class="ss-input-footer">
-        <span id="file-name-display" class="ss-filename hidden" aria-live="polite"></span>
-        <button id="btn-clear" class="ss-btn-ghost" type="button">清空</button>
-      </div>
-    </section>
-
-    <!-- ② Parameters ─────────────────────────────────────────────────── -->
-    <section class="ss-card" id="params-section">
-      <div class="ss-section-header">
-        <h2 class="ss-section-title">② 参数设置</h2>
-        <button id="btn-reset-defaults" class="ss-btn-ghost ss-btn-sm" type="button">恢复默认值</button>
-      </div>
-      <div id="params-grid" class="ss-params-grid">
-        <!-- Populated by form.js -->
-      </div>
-      <p class="ss-params-note">
-        上传到 SayStation 后，可通过平台的「全局配置」功能统一修改这些参数。
-      </p>
-
-    </section>
-
-    <!-- Convert button ──────────────────────────────────────────────── -->
-    <div class="ss-convert-wrap">
-      <button id="btn-convert" class="ss-btn-convert" type="button">
-        <span id="btn-spinner" class="ss-spinner hidden" aria-hidden="true"></span>
-        <span id="btn-label">开始转换</span>
-      </button>
-      <!-- Real progress bar (shown only during AI normalization) -->
-      <div id="progress-wrap" class="ss-progress-wrap hidden">
-        <div class="ss-progress-track">
-          <div id="progress-bar" class="ss-progress-bar" style="width:0%"></div>
+      <!-- RIGHT: SETTINGS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon blue">⚙️</div>
+          <span class="card-title">输出参数</span>
         </div>
-        <p id="progress-msg" class="ss-progress-msg"></p>
+        <div class="card-body">
+
+          <div class="setting-group">
+            <div class="setting-label"><span class="dot"></span>画面比例</div>
+            <div class="select-wrap">
+              <select id="aspect-ratio" onchange="updateEstimate()">
+                <option value="9:16" selected>9:16 — 竖屏 / 短视频</option>
+                <option value="16:9">16:9 — 横屏 / 院线</option>
+                <option value="1:1">1:1 — 方形</option>
+                <option value="4:3">4:3 — 标准电视</option>
+                <option value="2.39:1">2.39:1 — 宽银幕</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="setting-label"><span class="dot"></span>画风偏好</div>
+            <div class="select-wrap">
+              <select id="style">
+                <option value="anime" selected>日漫二次元</option>
+                <option value="korean">韩流一次元</option>
+                <option value="american">美式卡通</option>
+                <option value="2d-ancient">2D 古风</option>
+                <option value="3d-ancient">3D 古风</option>
+                <option value="modern">现代都市</option>
+                <option value="3d-cartoon">3D 卡通</option>
+                <option value="ink">中国工笔画</option>
+                <option value="realistic">写实风格</option>
+                <option value="watercolor">彩色水墨</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="setting-label"><span class="dot"></span>AI 模型</div>
+            <div class="select-wrap">
+              <select id="model">
+                <option value="hm-jimeng-sd2-fast" selected>HM-Jimeng SD2.0 Fast Official</option>
+                <option value="say-video-hot">say-video hot</option>
+                <option value="say-video-fast">say-video fast</option>
+                <option value="jimeng-seedance2">Jimeng Seedance 2.0</option>
+                <option value="agtcloud-sd2">agtcloud SD 2.0</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="setting-label"><span class="dot"></span>分辨率</div>
+            <div class="select-wrap">
+              <select id="resolution">
+                <option value="1280x720" selected>1280 × 720 (720p)</option>
+                <option value="1920x1080">1920 × 1080 (1080p)</option>
+                <option value="1080x1920">1080 × 1920 (竖屏)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="setting-group">
+            <div class="setting-label"><span class="dot"></span>剧本分析模式</div>
+            <div class="select-wrap">
+              <select id="analysis-mode">
+                <option value="script" selected>剧本模式</option>
+                <option value="paragraph">段落模式</option>
+                <option value="inspire">灵感扩写</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="info-row">
+            <span class="info-key">预计输出集数</span>
+            <span class="info-val accent" id="est-rows">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">CSV 列数</span>
+            <span class="info-val">8</span>
+          </div>
+          <div class="info-row">
+            <span class="info-key">上传到 SayStation 后</span>
+            <span class="info-val">可全局修改参数</span>
+          </div>
+
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- ③ Results ────────────────────────────────────────────────────── -->
-    <section class="ss-card hidden" id="results-section" aria-live="polite">
-      <h2 class="ss-section-title">③ 转换结果</h2>
-
-      <!-- Summary chips -->
-      <div id="summary-row" class="ss-summary-row"></div>
-
-      <!-- Episode list -->
-      <div id="episode-list" class="ss-episode-list"></div>
-
-      <!-- Download bar -->
-      <div class="ss-download-bar">
-        <span id="download-filename" class="ss-download-name"></span>
-        <button id="btn-download" class="ss-btn-download" type="button" disabled>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          下载 CSV 文件
-        </button>
+  <!-- LOADING -->
+  <div class="action-area hidden" id="loading-area">
+    <div class="loading-state">
+      <div class="spinner-ring"></div>
+      <div class="loading-text" id="loading-text">正在解析剧本结构…</div>
+      <div class="loading-steps">
+        <div class="step-item" id="step-1"><div class="step-dot"></div><span>读取文件内容</span></div>
+        <div class="step-item" id="step-2"><div class="step-dot"></div><span>识别集数与场景</span></div>
+        <div class="step-item" id="step-3"><div class="step-dot"></div><span>AI 辅助识别（如需要）</span></div>
+        <div class="step-item" id="step-4"><div class="step-dot"></div><span>生成 CSV 数据</span></div>
       </div>
-    </section>
+    </div>
+  </div>
 
-  </main>
+  <!-- RESULT -->
+  <div class="result-area hidden" id="result-area">
+    <div class="result-card" id="result-card">
+      <div class="result-header">
+        <div class="result-icon" id="result-icon">✓</div>
+        <div>
+          <div class="result-title" id="result-title">转换成功</div>
+          <div class="result-sub" id="result-sub">已生成 CSV 文件，可直接导入 SayStation</div>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-num" id="stat-scenes">—</div>
+            <div class="stat-label">集数</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="stat-shots">—</div>
+            <div class="stat-label">镜头数</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="stat-chars">—</div>
+            <div class="stat-label">资产数</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" id="stat-rows">—</div>
+            <div class="stat-label">CSV 行数</div>
+          </div>
+        </div>
 
-  <!-- Toast container -->
-  <div id="toast-container" class="ss-toast-container" aria-live="assertive"></div>
+        <div class="preview-table-wrap">
+          <table id="preview-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>集数</th>
+                <th>剧情内容</th>
+                <th>资产库</th>
+                <th>比例</th>
+                <th>画风</th>
+                <th>模型</th>
+                <th>分辨率</th>
+              </tr>
+            </thead>
+            <tbody id="preview-tbody"></tbody>
+          </table>
+        </div>
 
-  <!-- mammoth.js must load before module scripts so it's available as window.mammoth -->
-  <script src="lib/mammoth.browser.min.js"></script>
-  <script type="module" src="src/js/main.js"></script>
+        <!-- Error log (shown if there are warnings/errors) -->
+        <div id="error-log-container"></div>
+
+        <div class="download-row">
+          <button class="dl-btn primary" id="btn-download" onclick="downloadCSV()" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            下载 CSV
+          </button>
+          <button class="dl-btn secondary" onclick="resetAll()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 101.26-4.36L1 10"></path>
+            </svg>
+            重新转换
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- TWEAKS PANEL -->
+<div id="tweak-panel">
+  <div class="tweak-title">Tweaks</div>
+
+  <div class="tweak-group">
+    <div class="tweak-label">主题色</div>
+    <div class="tweak-opts">
+      <span class="tweak-chip on" onclick="setAccent('purple', this)">冷紫</span>
+      <span class="tweak-chip" onclick="setAccent('blue', this)">青蓝</span>
+      <span class="tweak-chip" onclick="setAccent('emerald', this)">翠绿</span>
+      <span class="tweak-chip" onclick="setAccent('amber', this)">琥珀</span>
+    </div>
+  </div>
+
+  <div class="tweak-group">
+    <div class="tweak-label">背景深度</div>
+    <div class="tweak-opts">
+      <span class="tweak-chip on" onclick="setBg('pure', this)">纯黑</span>
+      <span class="tweak-chip" onclick="setBg('warm', this)">暖黑</span>
+      <span class="tweak-chip" onclick="setBg('navy', this)">深蓝</span>
+    </div>
+  </div>
+
+  <div class="tweak-group">
+    <div class="tweak-label">光晕强度</div>
+    <div class="tweak-opts">
+      <span class="tweak-chip" onclick="setGlow('off', this)">关闭</span>
+      <span class="tweak-chip on" onclick="setGlow('normal', this)">正常</span>
+      <span class="tweak-chip" onclick="setGlow('intense', this)">强烈</span>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- mammoth.js for .docx support -->
+<script src="lib/mammoth.browser.min.js"></script>
+
+<!-- ── UI / Tweaks (non-module, global scope) ─────────────────────────────── -->
+<script>
+// ─── SHARED STATE (accessed by module script via window.*) ───────────────────
+window._currentFile = null;
+window._currentTab  = 'file';
+
+// ─── TWEAKS ──────────────────────────────────────────────────────────────────
+window.addEventListener('message', e => {
+  if (e.data?.type === '__activate_edit_mode')   showTweaks(true);
+  if (e.data?.type === '__deactivate_edit_mode') showTweaks(false);
+});
+window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+function showTweaks(on) {
+  document.getElementById('tweak-panel').classList.toggle('visible', on);
+}
+
+function setChipActive(group, el) {
+  document.querySelectorAll(group).forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function setAccent(v, el) {
+  setChipActive('[onclick*="setAccent"]', el);
+  const map = {
+    purple:  ['#7c3aed', '#0ea5e9', 'rgba(124,58,237,0.35)',  'rgba(14,165,233,0.25)'],
+    blue:    ['#0284c7', '#06b6d4', 'rgba(2,132,199,0.35)',   'rgba(6,182,212,0.25)'],
+    emerald: ['#059669', '#10b981', 'rgba(5,150,105,0.35)',   'rgba(16,185,129,0.25)'],
+    amber:   ['#d97706', '#f59e0b', 'rgba(217,119,6,0.35)',   'rgba(245,158,11,0.25)'],
+  };
+  const [a, a2, ag, a2g] = map[v];
+  document.documentElement.style.setProperty('--accent',       a);
+  document.documentElement.style.setProperty('--accent-2',     a2);
+  document.documentElement.style.setProperty('--accent-glow',  ag);
+  document.documentElement.style.setProperty('--accent-2-glow',a2g);
+  window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { accent: v } }, '*');
+}
+
+function setBg(v, el) {
+  setChipActive('[onclick*="setBg"]', el);
+  const bgs = { pure: '#080808', warm: '#0c0a08', navy: '#070a12' };
+  document.documentElement.style.setProperty('--bg', bgs[v]);
+  window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { bg: v } }, '*');
+}
+
+function setGlow(v, el) {
+  setChipActive('[onclick*="setGlow"]', el);
+  const btn = document.querySelector('.convert-btn');
+  if (v === 'off')     btn.style.boxShadow = 'none';
+  else if (v === 'normal') btn.style.boxShadow = '';
+  else btn.style.boxShadow = '0 0 50px rgba(124,58,237,0.6), 0 0 100px rgba(124,58,237,0.25)';
+  window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { glow: v } }, '*');
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  window._currentTab = tab;
+  document.getElementById('panel-file').classList.toggle('hidden', tab !== 'file');
+  document.getElementById('panel-text').classList.toggle('hidden', tab !== 'text');
+  document.getElementById('tab-file').classList.toggle('active', tab === 'file');
+  document.getElementById('tab-text').classList.toggle('active', tab === 'text');
+  updateEstimate();
+}
+
+// ─── FILE UPLOAD UI ───────────────────────────────────────────────────────────
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.add('dragover');
+}
+function handleDragLeave() {
+  document.getElementById('upload-zone').classList.remove('dragover');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) setFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) setFile(file);
+}
+function setFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['txt', 'docx'].includes(ext)) {
+    showToast('仅支持 .txt 或 .docx 文件', 'error');
+    return;
+  }
+  window._currentFile = file;
+  document.getElementById('file-name-display').textContent = file.name;
+  document.getElementById('file-size-display').textContent = formatSize(file.size);
+  document.getElementById('file-selected').classList.remove('hidden');
+  updateEstimate();
+}
+function removeFile() {
+  window._currentFile = null;
+  document.getElementById('file-selected').classList.add('hidden');
+  document.getElementById('file-input').value = '';
+  updateEstimate();
+}
+function formatSize(bytes) {
+  if (bytes < 1024)        return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+// ─── CHAR COUNT / ESTIMATE ────────────────────────────────────────────────────
+function updateCharCount() {
+  const v = document.getElementById('script-text').value;
+  document.getElementById('char-count').textContent = v.length.toLocaleString();
+  updateEstimate();
+}
+
+function updateEstimate() {
+  let est = '—';
+  const tab = window._currentTab;
+  if (tab === 'file' && window._currentFile) {
+    // Rough estimate: 1 episode per ~3000 bytes
+    const eps = Math.max(1, Math.round(window._currentFile.size / 3000));
+    est = `约 ${eps} 集`;
+  } else if (tab === 'text') {
+    const len = document.getElementById('script-text').value.length;
+    if (len > 50) {
+      const eps = Math.max(1, Math.round(len / 300));
+      est = `约 ${eps} 集`;
+    }
+  }
+  document.getElementById('est-rows').textContent = est;
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+  }, 4000);
+}
+
+// Expose for module script
+window.showToast = showToast;
+
+// ─── STUBS (overridden by module script below) ────────────────────────────────
+// These are placeholders so onclick doesn't throw before the module loads.
+window.startConversion = function() { showToast('正在初始化，请稍候…'); };
+window.downloadCSV     = function() {};
+window.resetAll        = function() {};
+</script>
+
+<!-- ── Real conversion logic (ES6 module) ────────────────────────────────── -->
+<script type="module">
+import { parseScript }             from './src/js/parser/index.js';
+import { buildCSV, buildFilename } from './src/js/generator/csv-builder.js';
+import { readTextFile }            from './src/js/io/text-reader.js';
+import { readDocxFile }            from './src/js/io/docx-reader.js';
+import { downloadCSV as doDownload } from './src/js/io/downloader.js';
+
+// ── Select value maps ─────────────────────────────────────────────────────────
+
+const STYLE_MAP = {
+  'anime':      '日漫二次元',
+  'korean':     '韩流一次元',
+  'american':   '美式卡通',
+  '2d-ancient': '2D古风',
+  '3d-ancient': '3D古风',
+  'modern':     '现代都市',
+  '3d-cartoon': '3D卡通',
+  'ink':        '中国工笔画',
+  'realistic':  '写实风格',
+  'watercolor': '彩色水墨',
+};
+
+const MODEL_MAP = {
+  'hm-jimeng-sd2-fast': 'HM-Jimeng SD2.0 Fast Official',
+  'say-video-hot':      'say-video hot',
+  'say-video-fast':     'say-video fast',
+  'jimeng-seedance2':   'Jimeng Seedance 2.0',
+  'agtcloud-sd2':       'agtcloud SD 2.0',
+};
+
+const RESOLUTION_MAP = {
+  '1280x720':  '720p',
+  '1920x1080': '1080p',
+  '1080x1920': '竖屏1080p',
+};
+
+const ANALYSIS_MAP = {
+  'script':    '剧本模式',
+  'paragraph': '段落模式',
+  'inspire':   '灵感扩写',
+};
+
+// ── App state ─────────────────────────────────────────────────────────────────
+
+let pendingCSV      = null;
+let pendingFilename = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getParams() {
+  const ratio      = document.getElementById('aspect-ratio').value;
+  const styleVal   = document.getElementById('style').value;
+  const modelVal   = document.getElementById('model').value;
+  const resVal     = document.getElementById('resolution').value;
+  const analysisVal = document.getElementById('analysis-mode').value;
+  return {
+    ratio,
+    style:        STYLE_MAP[styleVal]    || styleVal,
+    model:        MODEL_MAP[modelVal]    || modelVal,
+    resolution:   RESOLUTION_MAP[resVal] || resVal,
+    analysisMode: ANALYSIS_MAP[analysisVal] || analysisVal,
+  };
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// ── Steps UI ──────────────────────────────────────────────────────────────────
+
+function setStep(num, state) {
+  const el = document.getElementById(`step-${num}`);
+  if (!el) return;
+  el.classList.remove('active', 'done');
+  if (state) el.classList.add(state);
+}
+
+function resetSteps() {
+  for (let i = 1; i <= 4; i++) setStep(i, null);
+}
+
+// ── Progress callback ─────────────────────────────────────────────────────────
+
+function onProgress({ current, total, message }) {
+  document.getElementById('loading-text').textContent = message || '处理中…';
+  // Step 3 is the AI phase
+  if (total > 0) {
+    setStep(2, 'done');
+    setStep(3, 'active');
+  }
+}
+
+// ── Main conversion ───────────────────────────────────────────────────────────
+
+async function startConversion() {
+  const tab  = window._currentTab  || 'file';
+  const file = window._currentFile || null;
+
+  let text = '';
+
+  if (tab === 'file') {
+    if (!file) {
+      window.showToast('请先上传剧本文件', 'error');
+      return;
+    }
+    try {
+      const ext = file.name.split('.').pop().toLowerCase();
+      text = ext === 'docx' ? await readDocxFile(file) : await readTextFile(file);
+    } catch (err) {
+      window.showToast('文件读取失败：' + err.message, 'error');
+      return;
+    }
+  } else {
+    text = document.getElementById('script-text').value.trim();
+    if (!text) {
+      window.showToast('请先粘贴剧本文本', 'error');
+      return;
+    }
+  }
+
+  // ── Switch to loading state ───────────────────────────────────────────────
+  document.getElementById('action-area').classList.add('hidden');
+  document.getElementById('loading-area').classList.remove('hidden');
+  document.getElementById('result-area').classList.add('hidden');
+  document.getElementById('convert-btn').disabled = true;
+
+  resetSteps();
+  setStep(1, 'active');
+  document.getElementById('loading-text').textContent = '正在读取文件…';
+
+  await new Promise(r => setTimeout(r, 16)); // yield to paint
+
+  try {
+    const params = getParams();
+
+    // Step 1 → done, step 2 → active
+    setStep(1, 'done');
+    setStep(2, 'active');
+    document.getElementById('loading-text').textContent = '识别集数与场景结构…';
+
+    const { results, errors, usedLLM, llmError } = await parseScript(
+      text, params,
+      (progress) => {
+        setStep(2, 'done');
+        setStep(3, 'active');
+        onProgress(progress);
+      }
+    );
+
+    setStep(2, 'done');
+    setStep(3, 'done');
+    setStep(4, 'active');
+    document.getElementById('loading-text').textContent = '正在生成 CSV…';
+    await new Promise(r => setTimeout(r, 50));
+
+    if (results.length > 0) {
+      const csv      = buildCSV(results);
+      pendingFilename = buildFilename();
+      pendingCSV      = csv;
+    } else {
+      pendingCSV      = null;
+      pendingFilename = null;
+    }
+
+    setStep(4, 'done');
+
+    if (usedLLM)  window.showToast('已使用 AI 辅助识别完成转换');
+    if (llmError) window.showToast(`AI 识别失败，已用规则解析：${llmError}`, 'warn');
+
+    showResult(results, errors);
+
+  } catch (err) {
+    document.getElementById('loading-area').classList.add('hidden');
+    document.getElementById('action-area').classList.remove('hidden');
+    document.getElementById('convert-btn').disabled = false;
+    window.showToast('转换出错：' + err.message, 'error');
+  }
+}
+
+// ── Show result ───────────────────────────────────────────────────────────────
+
+function showResult(results, errors) {
+  document.getElementById('loading-area').classList.add('hidden');
+  document.getElementById('result-area').classList.remove('hidden');
+  document.getElementById('action-area').classList.remove('hidden');
+  document.getElementById('convert-btn').disabled = false;
+
+  // Compute stats
+  let totalShots = 0;
+  const allAssetNames = new Set();
+
+  for (const row of results) {
+    if (row.story) {
+      totalShots += row.story.split('\n\n\n').length;
+    }
+    if (row.assets) {
+      row.assets.split('\n').forEach(line => {
+        const name = line.split('|')[0].trim();
+        if (name) allAssetNames.add(name);
+      });
+    }
+  }
+
+  const fatals = errors.filter(e => e.isFatal);
+  const success = results.length > 0;
+
+  // Update result card style based on outcome
+  const resultCard = document.getElementById('result-card');
+  if (success) {
+    resultCard.style.border    = '1px solid rgba(74,222,128,0.2)';
+    resultCard.querySelector('.result-header').style.background   = 'rgba(74,222,128,0.05)';
+    resultCard.querySelector('.result-header').style.borderBottom = '1px solid rgba(74,222,128,0.12)';
+    resultCard.querySelector('.result-icon').style.background     = 'rgba(74,222,128,0.15)';
+    resultCard.querySelector('.result-icon').style.border         = '1px solid rgba(74,222,128,0.3)';
+    document.getElementById('result-icon').textContent   = '✓';
+    document.getElementById('result-title').textContent  = '转换成功';
+    document.getElementById('result-title').style.color  = 'rgb(74,222,128)';
+    document.getElementById('btn-download').disabled     = false;
+  } else {
+    resultCard.style.border    = '1px solid rgba(239,68,68,0.25)';
+    resultCard.querySelector('.result-header').style.background   = 'rgba(239,68,68,0.05)';
+    resultCard.querySelector('.result-header').style.borderBottom = '1px solid rgba(239,68,68,0.12)';
+    resultCard.querySelector('.result-icon').style.background     = 'rgba(239,68,68,0.15)';
+    resultCard.querySelector('.result-icon').style.border         = '1px solid rgba(239,68,68,0.3)';
+    document.getElementById('result-icon').textContent   = '✗';
+    document.getElementById('result-title').textContent  = '转换失败';
+    document.getElementById('result-title').style.color  = 'rgb(239,68,68)';
+    document.getElementById('btn-download').disabled     = true;
+  }
+
+  // Stats
+  document.getElementById('stat-scenes').textContent = results.length;
+  document.getElementById('stat-shots').textContent  = totalShots;
+  document.getElementById('stat-chars').textContent  = allAssetNames.size;
+  document.getElementById('stat-rows').textContent   = results.length;
+  document.getElementById('result-sub').textContent  = success
+    ? `已生成 ${results.length} 集数据，共 ${totalShots} 个镜头`
+    : `未能解析出有效集数，请检查剧本格式`;
+
+  // Preview table
+  const tbody = document.getElementById('preview-tbody');
+  tbody.innerHTML = '';
+  results.slice(0, 10).forEach((row, i) => {
+    const storyPreview = (row.story || '').split('\n')[0].slice(0, 60);
+    const assetCount   = row.assets ? row.assets.split('\n').filter(Boolean).length : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${esc(row.episode)}</td>
+      <td>${esc(storyPreview)}${storyPreview.length >= 60 ? '…' : ''}</td>
+      <td>${assetCount > 0 ? assetCount + ' 项' : '—'}</td>
+      <td>${esc(row.ratio)}</td>
+      <td>${esc(row.style)}</td>
+      <td>${esc(row.model)}</td>
+      <td>${esc(row.resolution)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Error / warning log
+  const logContainer = document.getElementById('error-log-container');
+  if (errors.length > 0) {
+    const items = errors.map(e =>
+      `<li><span style="color:${e.isFatal ? 'rgb(239,68,68)' : '#f59e0b'}">${e.isFatal ? '❌' : '⚠️'} </span>${esc(e.message)}</li>`
+    ).join('');
+    logContainer.innerHTML = `
+      <div class="error-log">
+        <div class="error-log-title">解析日志（${fatals.length} 个错误 / ${errors.length - fatals.length} 个警告）</div>
+        <ul>${items}</ul>
+      </div>`;
+  } else {
+    logContainer.innerHTML = '';
+  }
+
+  // Scroll result into view
+  document.getElementById('result-area').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+
+function downloadCSVFn() {
+  if (!pendingCSV || !pendingFilename) return;
+  doDownload(pendingCSV, pendingFilename);
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+
+function resetAllFn() {
+  pendingCSV      = null;
+  pendingFilename = null;
+  window._currentFile = null;
+
+  document.getElementById('file-selected').classList.add('hidden');
+  document.getElementById('file-input').value = '';
+  document.getElementById('script-text').value = '';
+  document.getElementById('char-count').textContent = '0';
+  document.getElementById('est-rows').textContent   = '—';
+  document.getElementById('result-area').classList.add('hidden');
+  document.getElementById('loading-area').classList.add('hidden');
+  document.getElementById('action-area').classList.remove('hidden');
+  document.getElementById('convert-btn').disabled = false;
+  document.getElementById('btn-download').disabled = true;
+  resetSteps();
+}
+
+// ── Wire up global onclick handlers ──────────────────────────────────────────
+window.startConversion = startConversion;
+window.downloadCSV     = downloadCSVFn;
+window.resetAll        = resetAllFn;
+</script>
+
 </body>
 </html>
