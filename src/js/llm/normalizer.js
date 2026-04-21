@@ -1,11 +1,9 @@
-// AI-powered script normalizer — called only when rule-based parsing fails.
-// Uses the company's unified LLM API (tencent_gemini_pro / Gemini 3.1 Pro Preview).
+// AI-powered script normalizer — called when rule-based parsing fails.
+// Uses the company's unified LLM API (tencent_gemini_pro).
 
 const API_ENDPOINT =
   'https://sh-uat-llm-online.xverse.cn/uat-yunjing/aigc-saystation-apiserver' +
   '/api/xverse-ai/text/chat/completions';
-
-const VENDOR = 'tencent_gemini_pro';
 
 const NORMALIZE_PROMPT = `你是一个剧本格式规范化助手。请将以下剧本文本转换为标准格式后直接返回，不要添加任何解释、说明或修改剧情内容。
 
@@ -23,24 +21,16 @@ const NORMALIZE_PROMPT = `你是一个剧本格式规范化助手。请将以下
 /**
  * Send script text to LLM for format normalization.
  * @param {string} scriptText - Script text WITHOUT link table
- * @param {string} apiToken   - Bearer token (may be empty for no-auth APIs)
  * @returns {Promise<string>} - Normalized script text
  */
-export async function normalizeScript(scriptText, apiToken) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (apiToken && apiToken.trim()) {
-    headers['Authorization'] = `Bearer ${apiToken.trim()}`;
-  }
-
+export async function normalizeScript(scriptText) {
   const resp = await fetch(API_ENDPOINT, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      vendor: VENDOR,
+      vendor: 'tencent_gemini_pro',
       params: {
         prompt: NORMALIZE_PROMPT + scriptText,
-        max_tokens: 8192,
-        stream: false,
       },
     }),
   });

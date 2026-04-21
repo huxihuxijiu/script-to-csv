@@ -9,15 +9,13 @@ import { normalizeScript } from '../llm/normalizer.js';
 
 /**
  * Main entry point: parse raw script text and return CSV row data + error list.
- * If rule-based parsing has fatal errors AND apiToken is provided, automatically
- * retries with AI-normalized text.
+ * If rule-based parsing has fatal errors, automatically retries with AI normalization.
  *
- * @param {string} rawText   - Raw script text (any line endings, optional BOM)
- * @param {object} params    - { ratio, style, model, resolution, analysisMode }
- * @param {string} apiToken  - Optional Bearer token for LLM fallback
+ * @param {string} rawText - Raw script text (any line endings, optional BOM)
+ * @param {object} params  - { ratio, style, model, resolution, analysisMode }
  * @returns {Promise<{ results: object[], errors: ParseError[], usedLLM: boolean, llmError?: string }>}
  */
-export async function parseScript(rawText, params, apiToken = '') {
+export async function parseScript(rawText, params) {
   // Normalize: strip BOM, unify line endings
   const text = rawText
     .replace(/^\uFEFF/, '')
@@ -32,13 +30,13 @@ export async function parseScript(rawText, params, apiToken = '') {
 
   // If no fatal errors, we're done
   const hasFatal = firstPass.errors.some(e => e.isFatal);
-  if (!hasFatal || !apiToken || !apiToken.trim()) {
+  if (!hasFatal) {
     return { ...firstPass, usedLLM: false };
   }
 
   // LLM fallback: normalize script and retry
   try {
-    const normalized = await normalizeScript(scriptText, apiToken);
+    const normalized = await normalizeScript(scriptText);
     const secondPass = runCoreParser(normalized, linkMap, params);
     return { ...secondPass, usedLLM: true };
   } catch (llmErr) {

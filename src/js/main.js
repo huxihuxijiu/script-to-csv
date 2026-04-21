@@ -1,6 +1,6 @@
 import { parseScript }              from './parser/index.js';
 import { buildCSV, buildFilename }  from './generator/csv-builder.js';
-import { initForm, getParams, resetDefaults, getApiToken, initTokenInput } from './ui/form.js';
+import { initForm, getParams, resetDefaults } from './ui/form.js';
 import { showResults, hideResults }  from './ui/renderer.js';
 import { downloadCSV }               from './io/downloader.js';
 import { readTextFile }              from './io/text-reader.js';
@@ -16,7 +16,6 @@ let pendingFilename = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   initForm();
-  initTokenInput();
   bindEvents();
 });
 
@@ -162,11 +161,7 @@ async function handleConvert() {
 
   try {
     const params = getParams();
-    const apiToken = getApiToken();
-
-    if (apiToken) setConverting(true, '正在调用 AI 识别…');
-
-    const { results, errors, usedLLM, llmError } = await parseScript(text, params, apiToken);
+    const { results, errors, usedLLM, llmError } = await parseScript(text, params);
 
     if (usedLLM) showToast('已使用 AI 辅助识别完成转换', 'info');
     if (llmError) showToast(`AI 识别失败，已用规则解析：${llmError}`, 'warn');

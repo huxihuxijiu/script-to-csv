@@ -1,5 +1,5 @@
 import { DEFAULTS, OPTIONS } from '../config.js';
-import { loadParams, saveParams, loadToken, saveToken } from './storage.js';
+import { loadParams, saveParams } from './storage.js';
 
 const PARAM_FIELDS = [
   { key: 'ratio',        label: '宽高比' },
@@ -66,27 +66,3 @@ export function resetDefaults() {
   setParams(DEFAULTS);
 }
 
-// ── API Token ─────────────────────────────────────────────────────────────────
-
-export function initTokenInput() {
-  const input  = document.getElementById('ai-token');
-  const btnClr = document.getElementById('btn-clear-token');
-  if (!input) return;
-
-  // Restore saved token
-  input.value = loadToken();
-
-  // Auto-save on change
-  input.addEventListener('input', () => saveToken(input.value));
-
-  // Clear button
-  btnClr?.addEventListener('click', () => {
-    input.value = '';
-    saveToken('');
-  });
-}
-
-export function getApiToken() {
-  const input = document.getElementById('ai-token');
-  return input ? input.value.trim() : '';
-}
