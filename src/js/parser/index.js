@@ -5,100 +5,150 @@ import { splitShots } from './shot-splitter.js';
 import { validateEpisode } from '../utils/validator.js';
 import { matchLinks } from '../matcher/link-matcher.js';
 import { ParseError, ERROR_CODES } from '../utils/errors.js';
-import { normalizeScript } from '../llm/normalizer.js';
+import { normalizeScript, normalizeEpisode } from '../llm/normalizer.js';
 
 /**
- * Main entry point: parse raw script text and return CSV row data + error list.
- * If rule-based parsing has fatal errors, automatically retries with AI normalization.
+ * Main entry point: parse raw script text into CSV row data.
  *
- * @param {string} rawText - Raw script text (any line endings, optional BOM)
- * @param {object} params  - { ratio, style, model, resolution, analysisMode }
- * @returns {Promise<{ results: object[], errors: ParseError[], usedLLM: boolean, llmError?: string }>}
+ * Flow:
+ *  1. Rule-based parse of all episodes.
+ *  2. Episodes with fatal errors → per-episode LLM normalization (real progress).
+ *  3. If NO episodes found at all → LLM normalizes whole document, then retry.
+ *
+ * @param {string}   rawText    - Raw script text
+ * @param {object}   params     - { ratio, style, model, resolution, analysisMode }
+ * @param {Function} onProgress - ({ current, total, message }) => void
+ * @returns {Promise<{ results, errors, usedLLM }>}
  */
-export async function parseScript(rawText, params) {
-  // Normalize: strip BOM, unify line endings
+export async function parseScript(rawText, params, onProgress = null) {
+  // ── Preprocess ──────────────────────────────────────────────────────────────
   const text = rawText
     .replace(/^\uFEFF/, '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 
-  // Separate link table from script body (do this once; LLM only sees scriptText)
   const { scriptText, linkMap } = extractLinkTable(text);
 
-  // First pass: rule-based parsing
-  const firstPass = runCoreParser(scriptText, linkMap, params);
+  // ── Split episodes ──────────────────────────────────────────────────────────
+  let episodeRaws = splitEpisodes(scriptText);
 
-  // If no fatal errors, we're done
-  const hasFatal = firstPass.errors.some(e => e.isFatal);
-  if (!hasFatal) {
-    return { ...firstPass, usedLLM: false };
+  // ── CASE A: No episodes found → LLM whole-doc normalization ────────────────
+  if (episodeRaws.length === 0) {
+    onProgress?.({ current: 0, total: 1, message: 'AI 正在识别文档结构…' });
+    try {
+      const normalized = await normalizeScript(scriptText);
+      onProgress?.({ current: 1, total: 1, message: '识别完成，正在解析…' });
+      const result = runEpisodePass(splitEpisodes(normalized), linkMap, params);
+      return { ...result, usedLLM: true };
+    } catch (llmErr) {
+      return {
+        results: [],
+        errors: [new ParseError(
+          ERROR_CODES.E_NO_EPISODES, 0,
+          `未找到任何集头，AI 识别也未成功：${llmErr.message}`
+        )],
+        usedLLM: false,
+        llmError: llmErr.message,
+      };
+    }
   }
 
-  // LLM fallback: normalize script and retry
-  try {
-    const normalized = await normalizeScript(scriptText);
-    const secondPass = runCoreParser(normalized, linkMap, params);
-    return { ...secondPass, usedLLM: true };
-  } catch (llmErr) {
-    // LLM failed — return original rule-based results with LLM error attached
-    return { ...firstPass, usedLLM: false, llmError: llmErr.message };
+  // ── CASE B: Episodes found — validate each, LLM-fix failures per episode ───
+  // Deduplicate episode numbers first
+  const seenNums = new Set();
+  const dupErrors = [];
+  const uniqueEpisodes = [];
+
+  for (const raw of episodeRaws) {
+    if (seenNums.has(raw.num)) {
+      dupErrors.push(new ParseError(
+        ERROR_CODES.E_BAD_EPISODE_NUM, raw.num, `第${raw.num}集出现多次，请检查`
+      ));
+    } else {
+      seenNums.add(raw.num);
+      uniqueEpisodes.push(raw);
+    }
   }
+
+  // Identify episodes that need LLM help
+  const needsLLM = uniqueEpisodes.filter(
+    raw => validateEpisode(raw).some(e => e.isFatal)
+  );
+
+  // Per-episode LLM normalization with real progress
+  const normalizedMap = new Map(); // num → normalized content
+
+  for (let i = 0; i < needsLLM.length; i++) {
+    const raw = needsLLM[i];
+    onProgress?.({
+      current: i,
+      total: needsLLM.length,
+      message: `AI 正在识别第 ${raw.num} 集（${i + 1} / ${needsLLM.length}）…`,
+    });
+
+    try {
+      const normalizedContent = await normalizeEpisode(raw.rawHeader, raw.content);
+      normalizedMap.set(raw.num, normalizedContent);
+    } catch {
+      // LLM failed for this episode — will fall back to original content
+    }
+
+    onProgress?.({
+      current: i + 1,
+      total: needsLLM.length,
+      message: `第 ${raw.num} 集识别完成（${i + 1} / ${needsLLM.length}）`,
+    });
+  }
+
+  // Build effective episode list (replace content with LLM output where available)
+  const effectiveEpisodes = uniqueEpisodes.map(raw =>
+    normalizedMap.has(raw.num)
+      ? { ...raw, content: normalizedMap.get(raw.num) }
+      : raw
+  );
+
+  const result = runEpisodePass(effectiveEpisodes, linkMap, params);
+  return {
+    results: result.results,
+    errors: [...dupErrors, ...result.errors],
+    usedLLM: normalizedMap.size > 0,
+  };
 }
 
-/**
- * Pure synchronous parser core. Takes already-extracted scriptText + linkMap.
- */
-function runCoreParser(scriptText, linkMap, params) {
-  const episodeRaws = splitEpisodes(scriptText);
+// ── Core episode processing (synchronous) ─────────────────────────────────────
 
-  if (episodeRaws.length === 0) {
-    return {
-      results: [],
-      errors: [new ParseError(
-        ERROR_CODES.E_NO_EPISODES, 0,
-        '未找到任何集头（如"第1集：集名"），请检查文档格式'
-      )],
-    };
-  }
-
+function runEpisodePass(episodeRaws, linkMap, params) {
   const results = [];
   const errors = [];
   const seenNums = new Set();
 
   for (const raw of episodeRaws) {
-    // Duplicate episode number check
     if (seenNums.has(raw.num)) {
       errors.push(new ParseError(
-        ERROR_CODES.E_BAD_EPISODE_NUM, raw.num,
-        `第${raw.num}集出现多次，请检查`
+        ERROR_CODES.E_BAD_EPISODE_NUM, raw.num, `第${raw.num}集出现多次，请检查`
       ));
       continue;
     }
     seenNums.add(raw.num);
 
-    // Validate structure
     const validationErrors = validateEpisode(raw);
-    const fatalErrors = validationErrors.filter(e => e.isFatal);
     errors.push(...validationErrors);
-    if (fatalErrors.length > 0) continue;
+    if (validationErrors.some(e => e.isFatal)) continue;
 
-    // Extract characters and scenes (order: characters first, then new scenes)
     const characters = extractCharacters(raw.content);
     const scenes = extractSceneNames(raw.content);
     const allNames = dedupe([...characters, ...scenes]);
 
-    // Match links
     const { assets, warnings } = matchLinks(allNames, linkMap, raw.num);
     errors.push(...warnings);
 
-    // Normalize story: split on double blank lines, rejoin with triple newlines
     const shots = splitShots(raw.content);
     const story = shots.join('\n\n\n');
 
     results.push({
-      episode: raw.rawHeader,   // col 1: preserved as-is
-      story,                    // col 2: full episode content
-      assets,                   // col 3: name｜url entries
+      episode: raw.rawHeader,
+      story,
+      assets,
       ratio: params.ratio,
       style: params.style,
       model: params.model,

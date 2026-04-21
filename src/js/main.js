@@ -161,8 +161,9 @@ async function handleConvert() {
 
   try {
     const params = getParams();
-    const { results, errors, usedLLM, llmError } = await parseScript(text, params);
+    const { results, errors, usedLLM, llmError } = await parseScript(text, params, onProgress);
 
+    hideProgress();
     if (usedLLM) showToast('已使用 AI 辅助识别完成转换', 'info');
     if (llmError) showToast(`AI 识别失败，已用规则解析：${llmError}`, 'warn');
 
@@ -177,6 +178,7 @@ async function handleConvert() {
 
     showResults(results, errors, pendingFilename);
   } catch (err) {
+    hideProgress();
     showToast(`转换出错：${err.message}`, 'error');
   } finally {
     setConverting(false);
@@ -190,6 +192,30 @@ function setConverting(on, label = '转换中…') {
   btn.disabled = on;
   lbl.textContent = on ? label : '开始转换';
   spinner.classList.toggle('hidden', !on);
+}
+
+// ── Toast notifications ───────────────────────────────────────────────────────
+
+// ── Progress bar ──────────────────────────────────────────────────────────────
+
+function onProgress({ current, total, message }) {
+  const wrap = document.getElementById('progress-wrap');
+  const bar  = document.getElementById('progress-bar');
+  const msg  = document.getElementById('progress-msg');
+  if (!wrap) return;
+
+  wrap.classList.remove('hidden');
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  bar.style.width = pct + '%';
+  msg.textContent = message;
+}
+
+function hideProgress() {
+  const wrap = document.getElementById('progress-wrap');
+  if (!wrap) return;
+  wrap.classList.add('hidden');
+  const bar = document.getElementById('progress-bar');
+  if (bar) bar.style.width = '0%';
 }
 
 // ── Toast notifications ───────────────────────────────────────────────────────
