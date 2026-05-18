@@ -884,13 +884,14 @@
                   </svg>
                 </div>
                 <div class="upload-title">拖拽文件至此，或点击选择</div>
-                <div class="upload-sub">支持 .txt / .docx 格式</div>
+                <div class="upload-sub">支持 .txt / .docx / .md 格式</div>
                 <div class="upload-types">
                   <span class="type-chip">TXT</span>
                   <span class="type-chip">DOCX</span>
+                  <span class="type-chip">MD</span>
                 </div>
               </div>
-              <input type="file" id="file-input" accept=".txt,.docx" onchange="handleFileSelect(event)">
+              <input type="file" id="file-input" accept=".txt,.docx,.md" onchange="handleFileSelect(event)">
               <div id="file-selected" class="file-selected hidden">
                 <div class="file-icon">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(124,58,237,0.8)" stroke-width="1.5">
@@ -1242,8 +1243,8 @@ function handleFileSelect(e) {
 }
 function setFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
-  if (!['txt', 'docx'].includes(ext)) {
-    showToast('仅支持 .txt 或 .docx 文件', 'error');
+  if (!['txt', 'docx', 'md'].includes(ext)) {
+    showToast('仅支持 .txt / .docx / .md 文件', 'error');
     return;
   }
   window._currentFile = file;

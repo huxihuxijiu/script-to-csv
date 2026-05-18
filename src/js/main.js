@@ -92,8 +92,8 @@ function bindEvents() {
 
 async function handleFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
-  if (!['txt', 'docx'].includes(ext)) {
-    showToast('仅支持 .txt 或 .docx 文件', 'error');
+  if (!['txt', 'docx', 'md'].includes(ext)) {
+    showToast('仅支持 .txt / .docx / .md 文件', 'error');
     return;
   }
 

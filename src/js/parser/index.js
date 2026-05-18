@@ -2,6 +2,7 @@ import { extractLinkTable } from './link-extractor.js';
 import { splitEpisodes } from './episode-splitter.js';
 import { extractCharacters, extractSceneNames } from './scene-parser.js';
 import { splitShots } from './shot-splitter.js';
+import { normalizeMarkdown } from './markdown-normalizer.js';
 import { validateEpisode } from '../utils/validator.js';
 import { matchLinks } from '../matcher/link-matcher.js';
 import { ParseError, ERROR_CODES } from '../utils/errors.js';
@@ -22,10 +23,12 @@ import { normalizeScript, normalizeEpisode } from '../llm/normalizer.js';
  */
 export async function parseScript(rawText, params, onProgress = null) {
   // ── Preprocess ──────────────────────────────────────────────────────────────
-  const text = rawText
-    .replace(/^\uFEFF/, '')
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n');
+  const text = normalizeMarkdown(
+    rawText
+      .replace(/^\uFEFF/, '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+  );
 
   const { scriptText, linkMap } = extractLinkTable(text);
 
